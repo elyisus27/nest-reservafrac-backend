@@ -2,8 +2,8 @@
 
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsNotEmpty, validate, IsEmail, IsEmpty, isNotEmpty } from 'class-validator';
-import { ResponseGeneric } from 'src/globals/reponse.class';
-import { SecUserProfile } from 'src/security/user_profile/entities/user_profile.entity';
+import { ResponseGeneric } from '../../../globals/reponse.class';
+import { SecUserProfile } from '../../../security/user_profile/entities/user_profile.entity';
 import { SecProfile } from '../../profile/entities/profile.entity';
 import { SecUser } from '../entities/user.entity';
 

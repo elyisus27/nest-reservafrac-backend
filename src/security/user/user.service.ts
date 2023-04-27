@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 
-import { MessageDto } from 'src/globals/message.dto';
+
 import { DataSource } from 'typeorm';
 import { SecProfile } from '../profile/entities/profile.entity';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { SecUser } from './entities/user.entity';
+import { MessageDto } from '../../globals/message.dto';
 
 @Injectable()
 export class UserService {

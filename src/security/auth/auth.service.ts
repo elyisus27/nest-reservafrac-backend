@@ -7,6 +7,7 @@ import { compare } from 'bcryptjs';
 import { PayloadInterface } from './payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import { SecUserProfile } from '../user_profile/entities/user_profile.entity';
+import { USERWHITESPACABLE_TYPES } from '@babel/types';
 //import { UpdateAuthDto } from './dto/update-auth.dto';
 
 @Injectable()
@@ -29,23 +30,23 @@ export class AuthService {
     const passwordOK = await compare(loginDto.password, user.password);
     if (!passwordOK) throw new UnauthorizedException(new MessageDto('contraseña errónea'));
 
+    
     const payload: PayloadInterface = {
       id: user.userId,
       username: user.username,
       email: user.email,
-
       profiles: user.userProfiles.map((rol: SecUserProfile) => {
-        //return rol.userProfileId //solo array numbers
-        return {
-          profileId: rol.profileId,
-          profileName: (rol.profile).profileName
-        }
+        return (rol.profile).profileName;
       })
     };
 
 
     const token = await this.jwtService.sign(payload);
-    return { success: true, data: { token } };
+
+
+    return {
+      success: true, data: { token: token }
+    };
   }
 
   // findAll() {

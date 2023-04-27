@@ -7,8 +7,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { SecUser } from 'src/security/user/entities/user.entity';
-import { MessageDto } from 'src/globals/message.dto';
+import { SecUser } from '../../../security/user/entities/user.entity';
+import { MessageDto } from '../../../globals/message.dto';
 import { DataSource, Repository } from 'typeorm';
 
 

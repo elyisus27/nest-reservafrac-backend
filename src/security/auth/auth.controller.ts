@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, ValidationPipe, UsePipes, UnauthorizedException, } from '@nestjs/common';
+import { Controller, Get, Post, Body, ValidationPipe, UsePipes, UnauthorizedException, UseGuards, } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { AuthGuard } from '@nestjs/passport';
 //mport { UpdateAuthDto } from './dto/update-auth.dto';
 
 @Controller('auth')
@@ -13,10 +14,43 @@ export class AuthController {
     return this.authService.login(createAuthDto);
   }
 
-  @UsePipes(new ValidationPipe({ whitelist: true }))
-  @Get('getest')
-  gettest(@Body() createAuthDto: LoginDto) {
-    throw new UnauthorizedException();
+  @Post('logout')
+  signout(req, res) {
+    try {
+      req.session = null;
+      return res.status(200).send({
+        message: "You've been signed out!"
+      });
+    } catch (err) {
+      //this.next(err);
+      return { success: false, message: "Error al logout", error: err }
+    }
+
+  }
+
+  
+  //getmoderator, getuser, getadmin
+  @Get('/all')
+  gettest() {
+    return "INFORMACION PUBLICA"
+  }
+  
+  @UseGuards(AuthGuard('jwt'))
+  @Get('/mod')
+  getMod() {
+    return "INFORMACION DEL MODERADOR"
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('/usr')
+  getUser() {
+    return "INFORMACION DEL USER"
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('/adm')
+  getAdmin() {
+    return "INFORMACION DEL ADMIN"
   }
 
   @UsePipes(new ValidationPipe({ whitelist: true }))

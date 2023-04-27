@@ -1,5 +1,5 @@
-import { SecProfile } from 'src/security/profile/entities/profile.entity';
-import { SecUser } from 'src/security/user/entities/user.entity';
+import { SecProfile } from '../../../security/profile/entities/profile.entity';
+import { SecUser } from '../../../security/user/entities/user.entity';
 import { Entity, PrimaryGeneratedColumn, Column, Unique, PrimaryColumn, ManyToOne, JoinColumn } from 'typeorm';
 
 

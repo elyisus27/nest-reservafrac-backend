@@ -1,5 +1,5 @@
 import { hash } from 'bcryptjs';
-import { SecUserProfile } from 'src/security/user_profile/entities/user_profile.entity';
+import { SecUserProfile } from '../../../security/user_profile/entities/user_profile.entity';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, BeforeInsert, BeforeUpdate } from 'typeorm';
 
 

@@ -5,12 +5,12 @@ import { ConfigService } from '@nestjs/config';
 import { SecProfile } from '../security/profile/entities/profile.entity';
 import { SecUserProfile } from '../security/user_profile/entities/user_profile.entity';
 import { SecUser } from '../security/user/entities/user.entity';
-import { CreateUserDto } from 'src/security/user/dto/create-user.dto';
+import { CreateUserDto } from '../security/user/dto/create-user.dto';
 import { Console } from 'console';
 import { hash } from 'bcryptjs';
 import { Cron, Timeout } from '@nestjs/schedule';
-import { CatWayPay } from 'src/catalogs/waypay/entities/waypay.entity';
-import { CreateWaypayDto } from 'src/catalogs/waypay/dto/create-waypay.dto';
+import { CatWayPay } from '../catalogs/waypay/entities/waypay.entity';
+import { CreateWaypayDto } from '../catalogs/waypay/dto/create-waypay.dto';
 
 
 @Injectable()
@@ -35,7 +35,7 @@ export class MySQLInsertTablesService {
             const data = await repo.find();
 
             if (data.length == 0 || this.config.get('DATABASE_SYNC') == '2') {
-                const PROFILES: SecProfile[] = [{ profileId: 1, profileName: 'Administrador' }, { profileId: 2, profileName: 'Usuario' }, { profileId: 3, profileName: 'Guardia' }]
+                const PROFILES: SecProfile[] = [{ profileId: 1, profileName: 'ADMIN-PROFILE' }, { profileId: 2, profileName: 'USER-PROFILE' }, { profileId: 3, profileName: 'GUARD-PROFILE' }]
                 repo.save(PROFILES);
                 this.logger.log('Generación de data correcta [SecProfile]');
             }

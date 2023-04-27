@@ -2,7 +2,7 @@ export interface PayloadInterface {
     id: number;
     username: string;
     email: string;
-    profiles: payloadProfile[];
+    profiles: string[];
 }
 
 export interface payloadProfile {

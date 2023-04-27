@@ -7,7 +7,7 @@ import { SecProfile } from '../profile/entities/profile.entity';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JWT_SECRET } from 'src/config/constants';
+import { JWT_SECRET } from '../../config/constants';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 
@@ -22,7 +22,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get(JWT_SECRET),
         signOptions: {
-          expiresIn: 20
+          expiresIn: "1h"//200
         }
       }),
       inject: [ConfigService],

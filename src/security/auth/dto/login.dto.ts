@@ -10,7 +10,7 @@ export class LoginDto {
 
 
     @MinLength(4, { message: 'password: longitud minima de 4' })
-    @MaxLength(12, { message: 'password: longitud máxima de 12' })
+    @MaxLength(100, { message: 'password: longitud máxima de 100' })
     @IsNotEmpty({ message: 'la contraseña del usuario no puede estar vacía' })
     password: string
 

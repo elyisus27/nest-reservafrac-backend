@@ -1,7 +1,7 @@
 
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsNotEmpty, IsOptional, validate } from "class-validator";
-import { ResponseGeneric } from "src/globals/reponse.class";
+import { ResponseGeneric } from "../../../globals/reponse.class";
 import { SecUser } from "../../user/entities/user.entity";
 import { SecProfile } from "../entities/profile.entity";
 
