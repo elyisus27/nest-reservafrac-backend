@@ -7,13 +7,15 @@ import * as session from 'express-session';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const allowedOrigins = [
-    //'http://localhost', //without port doesnt work
+    'http://localhost',       //production nginx
+    'http://localhost:80',    //production nginx
+    'http://192.168.196.2',   //sequoia production LAN
+    'https://caseta.citadelta.com', //cloudflare production 
+    'http://192.168.196.10:4200',   //phone test
+    'http://192.168.11.136:4200',   //phone test
     'http://localhost:4200',
     'http://127.0.0.1:4200',
-    // 'http://192.168.100.5:4200', //wsl2 localnetwork forwarding
-    // 'http://172.17.209.23:4200',//wsl2 localnetwork forwarding
-    // 'http://192.168.100.50:4200',//wsl2 localnetwork forwarding
-    // 'http://0.0.0.0:4200',//wsl2 localnetwork forwarding
+
   ];
   // Reflect the origin if it's in the allowed list or not defined (cURL, Postman, etc.)
   const corsOptions = {
@@ -21,7 +23,8 @@ async function bootstrap() {
       if (allowedOrigins.includes(origin) || !origin) {
         callback(null, true);
       } else {
-        callback(new Error('Origin not allowed by CORS'));
+        console.log(origin)
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
     },
     credentials:true

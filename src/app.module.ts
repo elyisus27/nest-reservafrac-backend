@@ -12,6 +12,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './security/auth/auth.module';
 
 import { WaypayModule } from './catalogs/waypay/waypay.module';
+import { HouseModule } from './residential/house/house.module';
+import { ClientModule } from './residential/client/client.module';
 
 
 @Module({
@@ -43,7 +45,11 @@ import { WaypayModule } from './catalogs/waypay/waypay.module';
     UserProfileModule,
     AuthModule,
 
-    WaypayModule
+    WaypayModule,
+
+    HouseModule,
+
+    ClientModule
 
   ],
   controllers: [AppController],
