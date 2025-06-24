@@ -9,3 +9,4 @@ test/
 tsconfig.build.json
 tsconfig.json
 tslint.json
+sessions

@@ -10,3 +10,8 @@ export const DB_PASSWORD='DB_PASSWORD'
 export const DATABASE_SYNC='DATABASE_SYNC'
 
 export const JWT_SECRET = 'JWT_SECRET'
+
+export const CFE_URL='CFE_URL'
+export const CFE_USER='CFE_USER'
+export const CFE_PWD='CFE_PWD'
+

@@ -1,5 +1,6 @@
-import { ResHouse } from "src/residential/house/entities/house.entity";
+
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { ResHouse } from "../../house/entities/house.entity";
 
 @Entity('res_client')
 export class ResClient {
