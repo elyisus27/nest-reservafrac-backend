@@ -31,11 +31,11 @@ export class CfeContractService {
       const SKIP = filters.limit * (filters.page - 1);
 
       const queryBuilder = this.cfeRepo.createQueryBuilder('q')
-        .select('q.contract_id AS contractId, q.street,  q.receipt_date AS receiptDate, q.payment_status AS paymentStatus')
-        .addSelect(`CASE q.billing_period WHEN 1 THEN 'Mensual' WHEN 2 THEN 'Bimestral' ELSE 'desconocido' END`, 'billingPeriod')
+        .select('q.contract_id AS contractId, q.street,  q.receipt_date AS receiptDate, q.payment_status AS paymentStatus, q.billingPeriod AS billingPeriod')
+        //.addSelect(`CASE q.billing_period WHEN 1 THEN 'Mensual' WHEN 2 THEN 'Bimestral' ELSE 'desconocido' END`, 'billingPeriod') - cambiarlo por 
         //.addSelect(`CASE q.payment_status WHEN 1 THEN 'No Pagado' WHEN 2 THEN 'Pagado' ELSE 'desconocido' END`, 'paymentStatus')
         .addSelect('q.receipt_months AS receiptMonths, q.service_number AS serviceNumber, q.meter_number AS meterNumber')
-        .addSelect(' q.client_name AS clientName, q.payment_due_date AS paymentDueDate, q.total AS total, DATE_FORMAT(updated_at,"%d/%m/%y %H:%i") AS updatedAt')
+        .addSelect(' q.client_name AS clientName, q.payment_due_date AS paymentDueDate,   CONCAT("$", FORMAT(q.total,2)) AS total, DATE_FORMAT(updated_at,"%d/%m/%y %H:%i") AS updatedAt')
         .skip(SKIP)
         .take(filters.limit)
         .where(
@@ -66,23 +66,25 @@ export class CfeContractService {
   }
 
   async updateBalance() {
-
     try {
-      const browser = await puppeteer.launch({ headless: true });
+      //puppeteer.use(StealthPlugin());
+      const browser = await puppeteer.launch({
+        headless: true, // o true si usas Puppeteer < 20
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
       const page = await browser.newPage();
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
+      );
 
-      await page.goto(this.configService.get<any>(CFE_URL));
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'es-ES,es;q=0.9',
+      });
 
-      // 1. Login
-      await page.type('#ctl00_MainContent_txtUsuario', this.configService.get<any>(CFE_USER));
-      await page.type('#ctl00_MainContent_txtPassword', this.configService.get<any>(CFE_PWD));
-      await Promise.all([
-        page.click('#ctl00_MainContent_btnIngresar'),
-        page.waitForNavigation({ waitUntil: 'networkidle0' }),
-      ]);
+      await this.loginToMicfe(page); // 👈 Login modularizado
 
       // 2. Espera a que aparezca el dropdown de contratos
-      await page.waitForSelector('#ctl00_MainContent_ddlServicios');
+      await page.waitForSelector('#ctl00_MainContent_ddlServicios',{ timeout: 60000 });
 
       const options = await page.$$eval(
         '#ctl00_MainContent_ddlServicios option',
@@ -96,57 +98,42 @@ export class CfeContractService {
 
         await page.waitForFunction(
           `document.querySelector("#ctl00_MainContent_lblNumeroServicio")?.innerText.replace(/\\s/g, '').includes("${opt.value}")`,
-          { timeout: 10000 } // dale un poco más de margen si va lento
+          { timeout: 10000 }
         );
 
         const receipt = await page.evaluate(() => {
           return {
             total: document.querySelector('#ctl00_MainContent_lblMonto')?.textContent?.replace(/\$/g, '')?.trim() || '',
             billingPeriod: document.querySelector('#ctl00_MainContent_lblPeriodoConsumo')?.textContent?.trim() || '',
-            //numeroServicio: document.querySelector('#ctl00_MainContent_lblNumeroServicio')?.textContent?.trim() || '',
             paymentDueDate: document.querySelector('#ctl00_MainContent_lblFechaLimite')?.textContent?.trim() || '',
             paymentStatus: document.querySelector('#ctl00_MainContent_lblEstadoRecibo')?.textContent?.trim() || ''
           };
         });
 
-        newData.push({ serviceNumber: opt.value, /*alias: opt.text,*/ ...receipt });
+        newData.push({ serviceNumber: opt.value, ...receipt });
       }
-      await browser.close();
-      //console.log('Recibos:', newData);
 
-      // 2. Extrae todos los serviceNumbers únicos
+      await browser.close();
+
       const serviceNumbers = newData.map(d => d.serviceNumber);
 
-      // 3. Busca registros existentes
       const existingContracts = await this.cfeRepo.find({
-        where: {
-          serviceNumber: In(serviceNumbers)
-        }
+        where: { serviceNumber: In(serviceNumbers) }
       });
 
-      // 4. Fusiona los datos nuevos en los registros existentes
       const mergedContracts = existingContracts.map(contract => {
         const updated = newData.find(d => d.serviceNumber === contract.serviceNumber);
-        if (updated) {
-          // Usa Object.assign para sobreescribir campos existentes
-          return Object.assign(contract, updated);
-        }
+        if (updated) return Object.assign(contract, updated);
         return contract;
       });
 
-      // 5. Guarda los contratos actualizados
       let saved = await this.cfeRepo.save(mergedContracts);
-
-
-
-
       return { success: true, data: saved };
+
     } catch (error) {
       return { success: false, message: error.message, error: error }
     }
-
   }
-
 
   async initTelegram() {
     try {
@@ -169,63 +156,62 @@ export class CfeContractService {
     }
   }
 
-
   async registerContracts() {
-    const activeInMicfe = await this.getActiveContractsFromMicfe();
-    console.log(1)
-    const contractsToRegister = await this.cfeRepo.find({
-      where: {
-        serviceNumber: Not(In(activeInMicfe)),
-        tagActive: 1,
-      }
-    });
+    try {
 
-
-    console.log(2)
-    const browser = await puppeteer.launch({
-      headless: false,
-      userDataDir: './sessions/telegram' // compartido entre sesiones
-    });
-    console.log(3)
-    const page = await browser.newPage();
-
-    await page.goto('https://web.telegram.org/k/', { waitUntil: 'networkidle2' });
-    await this.openChatWithCFE(page);
-
-    // Itera por cada contrato
-    for (const contract of contractsToRegister) {
-      await this.sendMessage(page, 'hola');
-      await this.sendMessage(page, '2');
-      await this.sendMessage(page, '1');
-      await this.sendMessage(page, contract.serviceNumber);
-
-
-      await new Promise(res => setTimeout(res, 2000));
-      const response = await page.evaluate(() => {
-        const msgs = Array.from(document.querySelectorAll('.text-content'));
-        return msgs[msgs.length - 1]?.textContent || '';
+      const activeInMicfe = await this.getActiveContractsFromMicfe();
+      const contractsToRegister = await this.cfeRepo.find({
+        where: {
+          serviceNumber: Not(In(activeInMicfe)),
+          tagActive: 1,
+        },
       });
 
-      let monto = 0;
-      if (response.includes('no presenta adeudo')) {
-        monto = 0;
-      } else {
-        const match = response.match(/\$?\s?([\d,]+\.\d{2})/);
-        if (match) {
-          monto = parseFloat(match[1].replace(',', ''));
-        }
+      const telegramBrowser = await puppeteer.launch({ headless: false, userDataDir: './sessions/telegram' });
+      const telegramPage = await telegramBrowser.newPage();
+      await telegramPage.goto('https://web.telegram.org/k/', { waitUntil: 'networkidle2' });
+      await this.openChatWithCFE(telegramPage);
+
+      const telegramResults = [];
+      for (const contract of contractsToRegister) {
+        console.log(`Iterando: ${contract.serviceNumber}`);
+        const result = await this.handleTelegramInteraction(telegramPage, contract);
+        telegramResults.push(result);
       }
 
-      // Guarda el contrato actualizado...
-      console.log(`Servicio: ${contract.serviceNumber}, Monto: ${monto}`);
+      await telegramBrowser.close();
 
-      await this.sendMessage(page, 'salir');
+      const micfeBrowser = await puppeteer.launch({ headless: false });
+      const micfePage = await micfeBrowser.newPage();
+      await this.loginToMicfe(micfePage);
+
+      for (const data of telegramResults) {
+        await this.registerInMicfe(micfePage, data);
+      }
+
+      await micfeBrowser.close();
+
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Error al consultar saldo',
+        error,
+      };
     }
-
   }
 
-
   //#region internal functions
+
+  private async loginToMicfe(page: puppeteer.Page) {
+    await page.goto(this.configService.get(CFE_URL));
+    await page.type('#ctl00_MainContent_txtUsuario', this.configService.get(CFE_USER));
+    await page.type('#ctl00_MainContent_txtPassword', this.configService.get(CFE_PWD));
+    await Promise.all([
+      page.click('#ctl00_MainContent_btnIngresar'),
+      page.waitForNavigation({ waitUntil: 'networkidle0' })
+    ]);
+  }
+
   async getActiveContractsFromMicfe(): Promise<string[]> {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
@@ -248,6 +234,77 @@ export class CfeContractService {
     await browser.close();
     return options;
   }
+
+  private async handleTelegramInteraction(page: puppeteer.Page, contract: CfeContract): Promise<{ serviceNumber: string; amount: number; clientName: string; street: string }> {
+    await this.sendMessage(page, 'hola');
+    await this.sendMessage(page, '2');
+    await this.sendMessage(page, '1');
+    await this.sendMessage(page, contract.serviceNumber);
+    await new Promise(res => setTimeout(res, 2000));
+
+    const response = await page.evaluate(() => {
+      const msgs = Array.from(document.querySelectorAll('.text-content'));
+      return msgs[msgs.length - 1]?.textContent || '';
+    });
+
+    let amount = 0;
+    if (!response.includes('no presenta adeudo')) {
+      const match = response.match(/\$?\s?([\d,]+\.\d{2})/);
+      if (match) {
+        amount = parseFloat(match[1].replace(',', ''));
+      }
+    }
+
+    await this.sendMessage(page, 'salir');
+    return {
+      serviceNumber: contract.serviceNumber,
+      amount,
+      clientName: contract.clientName,
+      street: contract.street,
+    };
+  }
+
+  private async registerInMicfe(page: puppeteer.Page, data: { serviceNumber: string; amount: number; clientName: string; street: string }) {
+    console.log('📎 Navegando a "Administrar mis recibos"...');
+    await new Promise(res => setTimeout(res, 500));
+    await page.waitForSelector('a.list-group-item[href="AdministrarServicios.aspx"]', { timeout: 60000 });
+    await page.click('a.list-group-item[href="AdministrarServicios.aspx"]');
+    await new Promise(res => setTimeout(res, 500)); // delay compatible
+    await page.waitForSelector('a[href="AgregarServicio.aspx"]', { timeout: 10000 });
+    await page.click('a[href="AgregarServicio.aspx"]');
+    await new Promise(res => setTimeout(res, 500)); // delay compatible
+    await page.waitForSelector('#ctl00_MainContent_txtRpu');
+
+    console.log('📝 Llenando formulario de nuevo recibo...');
+
+    // 1. Llenar inputs
+    await page.type('#ctl00_MainContent_txtRpu', data.serviceNumber);
+    await page.type('#ctl00_MainContent_txtNombreServicio', data.clientName);
+    await page.type('#ctl00_MainContent_txtTotalAPagar', data.amount.toFixed(2));
+    await page.type('#ctl00_MainContent_txtNombreCorto', data.street);
+
+    // 2. Click en guardar
+    await page.click('#ctl00_MainContent_btnGuardar');
+
+    // 3. Esperar mensaje de éxito (pero solo si aún no estaba)
+    await page.waitForFunction(() => {
+      const msg = document.querySelector('#ctl00_MainContent_lblExito');
+      return msg && msg.textContent?.includes('agregado exitosamente');
+    }, { timeout: 5000 });
+    await new Promise(res => setTimeout(res, 500)); // delay compatible
+    // 4. Limpiar inputs para siguiente iteración
+    await page.evaluate(() => {
+      (document.getElementById('ctl00_MainContent_txtRpu') as HTMLInputElement).value = '';
+      (document.getElementById('ctl00_MainContent_txtNombreServicio') as HTMLInputElement).value = '';
+      (document.getElementById('ctl00_MainContent_txtTotalAPagar') as HTMLInputElement).value = '';
+      (document.getElementById('ctl00_MainContent_txtNombreCorto') as HTMLInputElement).value = '';
+    });
+
+    console.log(`✅ Contrato ${data.serviceNumber} guardado en MiCFE`);
+  }
+
+
+
 
   async openChatWithCFE(page: puppeteer.Page): Promise<boolean> {
     try {
