@@ -68,37 +68,39 @@ export class CfeContractService {
   async updateBalance() {
     try {
       //puppeteer.use(StealthPlugin());
+      console.log('TRACE: Inicio de updateBalance'); // Log de inicio
       const browser = await puppeteer.launch({
         headless: true, // o true si usas Puppeteer < 20
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
       const page = await browser.newPage();
-      await page.setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
-      );
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36');
+      await page.setExtraHTTPHeaders({ 'Accept-Language': 'es-ES,es;q=0.9', });
 
-      await page.setExtraHTTPHeaders({
-        'Accept-Language': 'es-ES,es;q=0.9',
-      });
-
+      console.log('TRACE: Iniciando loginToMicfe');
       await this.loginToMicfe(page); // 👈 Login modularizado
+      console.log('TRACE: loginToMicfe completado');
 
+      console.log('TRACE: Esperando selector #ctl00_MainContent_ddlServicios');
       // 2. Espera a que aparezca el dropdown de contratos
-      await page.waitForSelector('#ctl00_MainContent_ddlServicios',{ timeout: 60000 });
+      await page.waitForSelector('#ctl00_MainContent_ddlServicios', { timeout: 60000 });
+      console.log('TRACE: Selector #ctl00_MainContent_ddlServicios encontrado');
 
       const options = await page.$$eval(
         '#ctl00_MainContent_ddlServicios option',
         opts => opts.map(o => ({ value: o.value, text: o.textContent }))
       );
-
+      console.log(`TRACE: Opciones obtenidas. Total: ${options.length}`);
       const newData = [];
 
-      for (const opt of options) {
+      console.log('TRACE: Iniciando bucle para procesar opciones');
+      for (const [index, opt] of options.entries()) {
+        console.log(`TRACE: ${index + 1}/${options.length}: ${opt.value}`);
         await page.select('#ctl00_MainContent_ddlServicios', opt.value);
 
         await page.waitForFunction(
           `document.querySelector("#ctl00_MainContent_lblNumeroServicio")?.innerText.replace(/\\s/g, '').includes("${opt.value}")`,
-          { timeout: 10000 }
+          { timeout: 60000 }
         );
 
         const receipt = await page.evaluate(() => {
@@ -111,14 +113,15 @@ export class CfeContractService {
         });
 
         newData.push({ serviceNumber: opt.value, ...receipt });
+        console.log(`TRACE: Agregado.`);
       }
 
       await browser.close();
-
+      console.log('TRACE: Mapeando números de servicio');
       const serviceNumbers = newData.map(d => d.serviceNumber);
 
       const existingContracts = await this.cfeRepo.find({
-        where: { serviceNumber: In(serviceNumbers) }
+        where: { serviceNumber: In(serviceNumbers), tagActive: 1 }
       });
 
       const mergedContracts = existingContracts.map(contract => {
@@ -126,7 +129,7 @@ export class CfeContractService {
         if (updated) return Object.assign(contract, updated);
         return contract;
       });
-
+      console.log('TRACE: Datos fusionados. Guardando en la base de datos.');
       let saved = await this.cfeRepo.save(mergedContracts);
       return { success: true, data: saved };
 
@@ -137,6 +140,7 @@ export class CfeContractService {
 
   async initTelegram() {
     try {
+
       const browser = await puppeteer.launch({
         headless: false,
         userDataDir: './sessions/telegram' // compartido entre sesiones
